@@ -393,12 +393,24 @@ def process_file(filepath: str):
 
 def process_line(line, filepath):
 
+    global SUBMITTER
+
     # extract filename #
     source_file = os.path.basename(filepath)
 
     # linestart/line #
     linestart = "info: [FA_METRICS] JSON: "
     jsonline = None
+
+    # check for self identifier first #
+    # looks like this: 'info: LOBBY: starting with local uid of 1050 [Sheppy]'
+    IDENT_STR = "info: LOBBY: starting with local uid of "
+    if line.startswith(IDENT_STR):
+        _, uid_and_name = line.split(IDENT_STR)
+        uid, name_raw = uid_and_name.split(" ")
+        name = name_raw.replace("[", "").replace("]", "").strip()
+        SUBMITTER = name
+
 
     # check if relevant metrics line #
     if line and line.startswith(linestart):
@@ -476,8 +488,9 @@ if __name__ == "__main__":
         TARGET_SERVER = args.target_server
     if args.secret_token:
         HEADERS["Token"] = args.secret_token
+
     if args.submitter:
-        SUBMITTER = args.submitter
+        print("Warning --submitter is deprecated and will be ignored. Submitter is determined based on game-log.")
 
     # set API locations # 
     GAME_INFO_API = TARGET_SERVER + "/api/gameinfo"
