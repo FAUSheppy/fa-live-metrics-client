@@ -274,7 +274,7 @@ def find_latest_game_log(directory: str, max_age: int):
     latest_file = max(files, key=lambda f: f.stat().st_mtime)
     file_age = datetime.datetime.fromtimestamp(latest_file.stat().st_mtime)
     if not latest_file or file_age < datetime.datetime.now() - datetime.timedelta(hours=max_age):
-        info_txt = f"({os.path.basename(latest_file)} ended at {file_age.strftime("%d.%m.%Y %H:%M")})"
+        info_txt = f"({os.path.basename(latest_file)} ended at {file_age.strftime('%d.%m.%Y %H:%M')})"
         print(f"Latest file is too old as specified by --use-latest-max-age-hours {info_txt}")
         return
 
