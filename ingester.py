@@ -21,6 +21,7 @@ SUBMITTER = None
 WATCH_DIR = None
 TARGET_SERVER = "http://localhost:5000"
 GAME_INFO_API = None
+ARGS = None
 MAX_TIME_NO_DATA_MINUTES = 3
 
 MAX_FILE_AGE = 3600  # 1 hour in seconds
@@ -284,12 +285,6 @@ def follow(filepath, ignore_conflict):
 
     with open(filepath, "r") as f:
 
-        # record new game #
-        response = send_game_info(filepath, state="NEW")
-        if response.status_code == 409 and not ignore_conflict:
-            print(f"Game {os.path.basename(filepath)} already in db. Skipping..")
-            return
-
         # track file #
         bulk = []
         eof_reached = False
@@ -358,7 +353,6 @@ def process_file(filepath: str):
     futures = []
     with open(filepath, "r") as f:
 
-        send_game_info(filepath, state="NEW")
         for line in f:
             data, line_first_seen = process_line(line, filepath)
             if data:
@@ -406,10 +400,18 @@ def process_line(line, filepath):
     # looks like this: 'info: LOBBY: starting with local uid of 1050 [Sheppy]'
     IDENT_STR = "info: LOBBY: starting with local uid of "
     if line.startswith(IDENT_STR):
+
         _, uid_and_name = line.split(IDENT_STR)
         uid, name_raw = uid_and_name.split(" ")
         name = name_raw.replace("[", "").replace("]", "").strip()
         SUBMITTER = name
+
+        # record new game #
+        response = send_game_info(filepath, state="NEW")
+        if response.status_code == 409 and not ARGS.ignore_conflict:
+            print(f"Game {os.path.basename(filepath)} already in db. Skipping..")
+            raise ValueError("Game Already exists")
+
 
 
     # check if relevant metrics line #
@@ -476,6 +478,7 @@ if __name__ == "__main__":
     ap.add_argument("--submitter")
     args = ap.parse_args()
 
+    ARGS = args
 
     # base args #
     if args.watch_dir:
@@ -565,11 +568,6 @@ if __name__ == "__main__":
             if filepath == latest:
                 continue
 
-            response = send_game_info(filepath, state="NEW")
-            if response.status_code == 409 and not args.ignore_conflict:
-                print(f"Game {os.path.basename(filepath)} already in db. Skipping..")
-                continue
-
         print(f"Submited all files in {WATCH_DIR}")
         sys.exit(0)
 
@@ -589,10 +587,16 @@ if __name__ == "__main__":
         print("Targeting File:",  filename)
         if not args.follow:
             print("Processing File (Single Run and Quit)")
-            process_file(os.path.join(WATCH_DIR, filename))
+            try:
+                process_file(os.path.join(WATCH_DIR, filename))
+            except ValueError as e:
+                print(e)
         elif args.follow:
             print("Starting filetracker, Ctrl-C to abort..")
-            follow(os.path.join(WATCH_DIR, filename), args.ignore_conflict)
+            try:
+                follow(os.path.join(WATCH_DIR, filename), args.ignore_conflict)
+            except ValueError as e:
+                print(e)
         else:
             raise NotImplementedError()
 
