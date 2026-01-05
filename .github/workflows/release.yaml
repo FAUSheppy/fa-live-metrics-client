@@ -26,7 +26,7 @@ jobs:
 
       - name: Build EXE
         run: |
-            pyinstaller ingester.py --onefile --clean --noconfirm --name fa-metrics-reporter-client.exe --version-file version_info.txt ingester.py
+            pyinstaller --onefile --clean --noconfirm --name fa-metrics-reporter-client.exe --version-file version_info.txt ingester.py
 
       - name: Release
         env:
