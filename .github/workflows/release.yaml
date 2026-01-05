@@ -1,0 +1,40 @@
+name: Build and Release EXE
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Build EXE
+        run: |
+            pyinstaller ingester.py \
+                --onefile \
+                --clean \
+                --noconfirm \
+                --name fa-metrics-reporter-client.exe \
+                --version-file version_info.txt \
+                ingester.py
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create ${{ github.ref_name }} "fa-metrics-reporter-client.exe" --generate-notes --title "release-${{ github.ref_name }}"
