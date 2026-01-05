@@ -2,7 +2,7 @@
 
 ## General Steps
 - request an account from me
-- log into [https://fa-metrics.rancher.katzencluster.atlantishq.de/](the FA Metrics Webinterface)
+- log into https://fa-metrics.rancher.katzencluster.atlantishq.de/
 - download and enable **FA_Metrics_Exporter** from the FAF modvault
 
 ## Windows
