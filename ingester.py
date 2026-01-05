@@ -409,7 +409,7 @@ def process_line(line, filepath):
 
         # record new game #
         response = send_game_info(filepath, state="NEW")
-        if response.status_code == 409 and not ARGS.ignore_conflict:
+        if response.status_code == 409 and not ignore_conflict:
             print(f"Game {os.path.basename(filepath)} already in db. Skipping..")
             raise ValueError("Game Already exists")
 
@@ -572,9 +572,10 @@ if __name__ == "__main__":
         print(f"Submited all files in {WATCH_DIR}")
         sys.exit(0)
 
+    retry_connection = False
     while True:
 
-        if args.use_latest:
+        if args.use_latest and not retry_connection:
             filename = find_latest_game_log(WATCH_DIR, args.use_latest_max_age_hours)
             if not filename or old_filename == filename:
 
@@ -585,6 +586,11 @@ if __name__ == "__main__":
                 else:
                     sys.exit(0)
 
+        # reset retry_connection, ignore conflict if we are in a retry #
+        ignore_conflict = args.ignore_conflict or retry_connection
+        print(ignore_conflict)
+        retry_connection = False
+
         print("Targeting File:",  filename)
         if not args.follow:
             print("Processing File (Single Run and Quit)")
@@ -592,12 +598,18 @@ if __name__ == "__main__":
                 process_file(os.path.join(WATCH_DIR, filename))
             except ValueError as e:
                 print(e)
+
         elif args.follow:
             print("Starting filetracker, Ctrl-C to abort..")
             try:
-                follow(os.path.join(WATCH_DIR, filename), args.ignore_conflict)
+                follow(os.path.join(WATCH_DIR, filename), ignore_conflict)
             except ValueError as e:
-                print(e)
+                if str(e) != "Game Already exists":
+                    print(e)
+            except requests.exceptions.ConnectionError as e:
+                print("Connection to server failed: ", e, "retrying in 5s...")
+                time.sleep(5)
+                retry_connection = True
         else:
             raise NotImplementedError()
 
