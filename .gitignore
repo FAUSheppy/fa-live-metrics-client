@@ -2,3 +2,4 @@ build/
 *.swp
 ingester.spec
 dist/
+*.spec
