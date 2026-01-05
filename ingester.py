@@ -84,7 +84,8 @@ def send_game_info(filepath, state):
 
 def send_data(data):
 
-    return requests.post(INSERT_API, headers=HEADERS, json=data)
+    payload = { "data": data, "submitter": SUBMITTER}
+    return requests.post(INSERT_API, headers=HEADERS, json=payload)
 
 def check_lobby_line(line):
 
