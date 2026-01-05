@@ -18,6 +18,7 @@ VSVersionInfo(
           StringStruct('FileVersion', '1.0.0'),
           StringStruct('InternalName', 'Python Ingester'),
           StringStruct('Author', 'Yannik Schmidt (Sheppy)'),
+          StringStruct('License', 'GPLv3'),
         ]
       )
     ]),
