@@ -6,7 +6,7 @@
 - download and enable **FA_Metrics_Exporter** from the FAF modvault
 
 ## Windows
-- download the latest released `fa-metrics-exporter-client.exe` it should automatically find the logs at the default location
+- download the latest released [fa-metrics-exporter-client.exe](https://github.com/FAUSheppy/fa-live-metrics-client/releases) it should automatically find the logs at the default location
 - if logs are not at the default location execute the executeable with `--watch-dir C:/path/to/faf/log/` (the directory with files that look like `game_1234567.log`)
 
 ## Linux
