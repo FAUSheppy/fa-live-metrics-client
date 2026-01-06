@@ -5,7 +5,7 @@
     - FAF name: Sheppy (case-sensitive)
     - Optional: email address (for password resets)
 - Log in to https://fa-metrics.rancher.katzencluster.atlantishq.de/
-- Download and enable **FA_Metrics_Exporter** from the FAF mod vault
+- Download and enable **FA_Metrics_Exporter** from the FAF-client mod vault
 
 ## Windows
 - Download the latest released [fa-metrics-exporter-client.exe](https://github.com/FAUSheppy/fa-live-metrics-client/releases). It should automatically find the logs at the default location
