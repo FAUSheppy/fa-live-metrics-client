@@ -1,21 +1,23 @@
-# How to use (BETA)
+# How to Use (BETA)
 
 ## General Steps
-- request an account from me
-- log into https://fa-metrics.rancher.katzencluster.atlantishq.de/
-- download and enable **FA_Metrics_Exporter** from the FAF modvault
+- Request an account from me with the following info:
+    - FAF name: Sheppy (case-sensitive)
+    - Optional: email address (for password resets)
+- Log in to https://fa-metrics.rancher.katzencluster.atlantishq.de/
+- Download and enable **FA_Metrics_Exporter** from the FAF mod vault
 
 ## Windows
-- download the latest released [fa-metrics-exporter-client.exe](https://github.com/FAUSheppy/fa-live-metrics-client/releases) it should automatically find the logs at the default location
-- if logs are not at the default location execute the executeable with `--watch-dir C:/path/to/faf/log/` (the directory with files that look like `game_1234567.log`)
+- Download the latest released [fa-metrics-exporter-client.exe](https://github.com/FAUSheppy/fa-live-metrics-client/releases); it should automatically find the logs at the default location
+- If the logs are not at the default location, execute the executable with `--watch-dir C:/path/to/faf/log/` (the directory containing files like `game_1234567.log`)
 
 ## Linux
-- download or clone this repository
-- install python via your package manager
-- install dependencies with `python3 -m pip -r requirements.txt`
-- run the script `python3 ingester.py`
+- Download or clone this repository
+- Install Python via your package manager
+- Install dependencies with `python3 -m pip -r requirements.txt`
+- Run the script with `python3 ingester.py`
 
 ## Notes
-- not all alerts in the overview are already implemented
-- the mod _can_ lag the UI, there is a hotkey you can map to unload it, should it ever happen
-- if you want to start a game just open the **Live Game** page
+- Not all alerts in the overview are implemented yet
+- The mod *can* lag the UI; there is a hotkey you can map to unload it if this happens
+- To start a game, simply open the **Live Game** page
