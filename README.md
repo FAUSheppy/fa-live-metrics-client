@@ -8,7 +8,7 @@
 - Download and enable **FA_Metrics_Exporter** from the FAF mod vault
 
 ## Windows
-- Download the latest released [fa-metrics-exporter-client.exe](https://github.com/FAUSheppy/fa-live-metrics-client/releases); it should automatically find the logs at the default location
+- Download the latest released [fa-metrics-exporter-client.exe](https://github.com/FAUSheppy/fa-live-metrics-client/releases). It should automatically find the logs at the default location
 - If the logs are not at the default location, execute the executable with `--watch-dir C:/path/to/faf/log/` (the directory containing files like `game_1234567.log`)
 
 ## Linux
@@ -19,5 +19,5 @@
 
 ## Notes
 - Not all alerts in the overview are implemented yet
-- The mod *can* lag the UI; there is a hotkey you can map to unload it if this happens
+- The mod *can* lag the UI -> there is a hotkey you can map to unload it if this happens
 - To start a game, simply open the **Live Game** page
