@@ -22,7 +22,7 @@ WATCH_DIR = None
 TARGET_SERVER = "http://localhost:5000"
 GAME_INFO_API = None
 ARGS = None
-MAX_TIME_NO_DATA_MINUTES = 3
+MAX_TIME_NO_DATA_MINUTES = 60
 
 MAX_FILE_AGE = 3600  # 1 hour in seconds
 SEND_TIMEOUT = 15
@@ -310,7 +310,10 @@ def follow(filepath, ignore_conflict):
 
                 if (datetime.datetime.now() - datetime.timedelta(minutes=MAX_TIME_NO_DATA_MINUTES) > last_line_read or
                         str(find_latest_game_log(WATCH_DIR, 1)) != filepath):
-                    print("Aborting file follow despite no end line, no new lines in 5min. Game might have crashed.")
+
+                    print(f"Aborting read on {os.path.basename(filepath)}",
+                            f"New game log or no new lines for {MAX_TIME_NO_DATA_MINUTES}m",
+                            "Game might have crashed.")
                     send_game_info(filepath, state="DONE")
                     return
 
