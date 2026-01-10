@@ -434,7 +434,11 @@ def process_line(line, filepath):
 
         return None, None
 
-    jsonline = jsonline.strip()
+    # cleanup json
+    lua_nan = "1.#QNAN"
+    json_nan = "null" # NaN does not exist in JSON, serialize it to null and handle that on the server
+    jsonline = jsonline.strip().replace(lua_nan, json_nan)
+
     if not jsonline:
         return None, None
     try:
