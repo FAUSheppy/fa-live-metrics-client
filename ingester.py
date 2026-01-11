@@ -293,7 +293,11 @@ def follow(filepath, ignore_conflict):
         while True:
 
             # check for next line
-            line = f.readline()
+            try:
+                line = f.readline()
+            except UnicodeDecodeError as e:
+                # this happens if non latin1-people do markers sometimes #
+                print("Error Decoding Line. Possible non-unicode?", e)
 
             # reached EOF, send everything that there #
             if not line:
