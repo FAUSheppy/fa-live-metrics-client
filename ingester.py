@@ -17,6 +17,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
 # ------------ CONFIGURATION ------------ #
 
+MIN_SERVER_VERSION = 5
+MAX_SERVER_VERSION = 5
+
 SUBMITTER = None
 WATCH_DIR = None
 TARGET_SERVER = "http://localhost:5000"
@@ -488,6 +491,7 @@ if __name__ == "__main__":
     ap.add_argument("--load-sample-data", action=argparse.BooleanOptionalAction, default=False, help="Load Sample Data and ignore all other options")
     ap.add_argument("--submit-all", action=argparse.BooleanOptionalAction, default=False, help="Submit all file not on the server already")
     ap.add_argument("--submitter")
+    ap.add_argument("--check-server-version", action=argparse.BooleanOptionalAction, default=True)
     args = ap.parse_args()
 
     ARGS = args
@@ -503,6 +507,19 @@ if __name__ == "__main__":
         TARGET_SERVER = args.target_server
     if args.secret_token:
         HEADERS["Token"] = args.secret_token
+
+    if args.check_server_version:
+        response = requests.get(TARGET_SERVER + "/api/debug/server-version")
+        result = response.json()
+        server_version = result["version"]
+        if MIN_SERVER_VERSION > server_version or MAX_SERVER_VERSION < server_version:
+            print("\n==========================================================================================")
+            print("You client requires server version between {MIN_SERVER_VERSION} and {MAX_SERVER_VERSION}.")
+            print("                But this Server identifies as version {server_version}.")
+            print("                    Upgrade to the newest client to continue.")
+            print("==========================================================================================\n")
+            input("                              <ENTER> to exit\n")
+            sys.exit(1)
 
     if args.submitter:
         print("Warning --submitter is deprecated and will be ignored. Submitter is determined based on game-log.")
