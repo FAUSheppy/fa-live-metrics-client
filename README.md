@@ -6,13 +6,13 @@
     - Optional: email address (for password resets)
 - Log in to https://fa-metrics.rancher.katzencluster.atlantishq.de/
 - Download and enable **UI mod tools** from the FAF-client mod vault
-- Download and enable **FA_Metrics_Exporter** from the FAF-client mod vault
+- Download and enable **the >>latest<< version of FA_Metrics_Exporter** from the FAF-client mod vault
 
 ## Windows
 - Download the latest released [fa-metrics-exporter-client.exe](https://github.com/FAUSheppy/fa-live-metrics-client/releases). It should automatically find the logs at the default location
-- If the logs are not at the default location, execute the executable with `--watch-dir C:/path/to/faf/log/` (the directory containing files like `game_1234567.log`)
+- **If** the logs are **not** at the default location, execute the executable with `--watch-dir C:/path/to/faf/log/` (the directory containing files like `game_1234567.log`)
 
-## Linux
+## Linux / Python-Native
 - Download or clone this repository
 - Install Python via your package manager
 - Install dependencies with `python3 -m pip -r requirements.txt`
