@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
 MIN_SERVER_VERSION = 5
 MAX_SERVER_VERSION = 5
+MIN_MOD_VERSION = 5
 
 SUBMITTER = None
 WATCH_DIR = None
@@ -344,7 +345,16 @@ def follow(filepath, ignore_conflict):
 
             # process lines & send to server #
             data, line_first_seen = process_line(line, filepath)
+
             if data:
+
+                # mod version
+                if "mapName" in data and ("modVersion" not in data or data['modVersion'] < MIN_MOD_VERSION):
+                    print(f"\n\n============================ OUTDATED MOD =======================================")
+                    print(f"Live Metrics Mod Version is too low! (Installed: {data.get('modVersion') or '4'}, Required: {MIN_MOD_VERSION})")
+                    input(f"============================ ENTER TO EXIT ======================================\n\n")
+                    sys.exit(1)
+
                 bulk.append(data)
 
             # send data if more than 300 lines #
