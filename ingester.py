@@ -523,12 +523,12 @@ if __name__ == "__main__":
         result = response.json()
         server_version = result["version"]
         if MIN_SERVER_VERSION > server_version or MAX_SERVER_VERSION < server_version:
-            print("\n==========================================================================================")
-            print("You client requires server version between {MIN_SERVER_VERSION} and {MAX_SERVER_VERSION}.")
-            print("                But this Server identifies as version {server_version}.")
-            print("                    Upgrade to the newest client to continue.")
-            print("==========================================================================================\n")
-            input("                              <ENTER> to exit\n")
+            print(f"\n==========================================================================================")
+            print(f"You client requires server version between {MIN_SERVER_VERSION} and {MAX_SERVER_VERSION}.")
+            print(f"                But this Server identifies as version {server_version}.")
+            print(f"                    Upgrade to the newest client to continue.")
+            print(f"==========================================================================================\n")
+            input(f"                              <ENTER> to exit\n")
             sys.exit(1)
 
     if args.submitter:
