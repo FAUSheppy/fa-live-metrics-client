@@ -17,9 +17,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
 # ------------ CONFIGURATION ------------ #
 
-MIN_SERVER_VERSION = 5
-MAX_SERVER_VERSION = 5
-MIN_MOD_VERSION = 5
+MIN_SERVER_VERSION = 6
+MAX_SERVER_VERSION = 6
+MIN_MOD_VERSION = 6
 
 SUBMITTER = None
 WATCH_DIR = None
