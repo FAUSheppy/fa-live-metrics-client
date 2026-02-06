@@ -328,7 +328,7 @@ def follow(filepath, ignore_conflict):
                 continue
 
             # output line #
-            print("Line found:", line.strip("\n"))
+            print("Line found:", line.strip("\n")[:90])
             last_line_read = datetime.datetime.now()
 
             # check if is ending line #
@@ -626,7 +626,6 @@ if __name__ == "__main__":
 
         # reset retry_connection, ignore conflict if we are in a retry #
         ignore_conflict = args.ignore_conflict or retry_connection
-        print(ignore_conflict)
         retry_connection = False
 
         print("Targeting File:",  filename)
