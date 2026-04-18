@@ -651,7 +651,8 @@ if __name__ == "__main__":
 
                 if args.wait_for_new_file:
                     if print_limiter_counter >= PRINT_INTERVAL:
-                        print(f"[{datetime.datetime.now().strftime(r"%y-%m-%d %H:%M:%S")}] No suitable gamelog file found. Waiting for new game to start...")
+                        time_format = r"%y-%m-%d %H:%M:%S"
+                        print(f"[{datetime.datetime.now().strftime(time_format)}] No suitable gamelog file found. Waiting for new game to start...")
                         print_limiter_counter = 0
 
                     print_limiter_counter += SLEEP_TIME
