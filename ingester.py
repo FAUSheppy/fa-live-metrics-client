@@ -35,6 +35,8 @@ HEADERS = {
     "Token":  "secret"
 }
 
+LATEST_GAME_WARNING_PRINTED = False
+
 
 def get_faf_log_dir() -> Path:
 
@@ -78,11 +80,12 @@ def find_and_check_log_dir():
     print(f"Found {len(log_files)} log files in {WATCH_DIR}")
 
 
-def send_game_info(filepath, state):
+def send_game_info(filepath, state, replay_update_army_id=0):
     payload = {
         "file": filepath,
         "state": state,
         "submitter": SUBMITTER,
+        "replayUpdateArmyId": replay_update_army_id
     }
     return requests.post(GAME_INFO_API, headers=HEADERS, json=payload)
 
@@ -264,7 +267,8 @@ def check_lobby_line(line):
         }
 
 
-def find_latest_game_log(directory: str, max_age: int):
+def find_latest_game_log(directory: str, max_age: int, ignore_replays: bool = True):
+    global LATEST_GAME_WARNING_PRINTED
 
     path = pathlib.Path(directory)
 
@@ -272,6 +276,12 @@ def find_latest_game_log(directory: str, max_age: int):
         f for f in path.iterdir()
         if f.is_file() and f.name.startswith("game_")
     ]
+
+    if not ignore_replays:
+        files += [
+            f for f in path.iterdir()
+            if f.is_file() and f.name.startswith("replay_")
+        ]
 
     if not files:
         return None
@@ -281,12 +291,14 @@ def find_latest_game_log(directory: str, max_age: int):
     file_age = datetime.datetime.fromtimestamp(latest_file.stat().st_mtime)
     if not latest_file or file_age < datetime.datetime.now() - datetime.timedelta(hours=max_age):
         info_txt = f"({os.path.basename(latest_file)} ended at {file_age.strftime('%d.%m.%Y %H:%M')})"
-        print(f"Latest file is too old as specified by --use-latest-max-age-hours {info_txt}")
+        if not LATEST_GAME_WARNING_PRINTED:
+            print(f"Latest game was too long ago (--use-latest-max-age-hours is {info_txt})")
+            LATEST_GAME_WARNING_PRINTED = True
         return
 
     return latest_file
 
-def follow(filepath, ignore_conflict):
+def follow(filepath, ignore_conflict, ignore_replays):
 
     with open(filepath, "r") as f:
 
@@ -317,7 +329,7 @@ def follow(filepath, ignore_conflict):
                 time.sleep(0.1)
 
                 if (datetime.datetime.now() - datetime.timedelta(minutes=MAX_TIME_NO_DATA_MINUTES) > last_line_read or
-                        str(find_latest_game_log(WATCH_DIR, 1)) != filepath):
+                        str(find_latest_game_log(WATCH_DIR, 1, ignore_replays)) != filepath):
 
                     print(f"Aborting read on {os.path.basename(filepath)}",
                             f"New game log or no new lines for {MAX_TIME_NO_DATA_MINUTES}m",
@@ -328,7 +340,7 @@ def follow(filepath, ignore_conflict):
                 continue
 
             # output line #
-            print("Line found:", line.strip("\n")[:90])
+            #print("Line found:", line.strip("\n")[:90])
             last_line_read = datetime.datetime.now()
 
             # check if is ending line #
@@ -417,9 +429,18 @@ def process_line(line, filepath):
     linestart = "info: [FA_METRICS] JSON: "
     jsonline = None
 
+    # handle replay recording army switch #
+    IDENT_REPLAY_SUBMITTER_UPDATE = "info: [FA_METRICS] REPLAY_SUBMITTER_UPDATE: "
+    if line.startswith(IDENT_REPLAY_SUBMITTER_UPDATE):
+        SUBMITTER, ARMY_ID = line.split(IDENT_REPLAY_SUBMITTER_UPDATE)[1].split(",")
+        send_game_info(filepath, state="NEW", replay_update_army_id=int(ARMY_ID))
+        print(f"Replay Analysis: Updated Submitter to {SUBMITTER}")
+        return None, None
+
     # check for self identifier first #
     # looks like this: 'info: LOBBY: starting with local uid of 1050 [Sheppy]'
     IDENT_STR = "info: LOBBY: starting with local uid of "
+    IDENT_STR_REPLAY = "info: Game type:"
     if line.startswith(IDENT_STR):
 
         _, uid_and_name = line.split(IDENT_STR)
@@ -433,6 +454,13 @@ def process_line(line, filepath):
             print(f"Game {os.path.basename(filepath)} already in db. Skipping..")
             raise ValueError("Game Already exists")
 
+    elif line.startswith(IDENT_STR_REPLAY) and "replay" in filepath:
+
+        SUBMITTER = "replay_recording"
+        response = send_game_info(filepath, state="NEW")
+        if response.status_code == 409 and not ignore_conflict:
+            print(f"Game {os.path.basename(filepath)} already in db. Skipping..")
+            raise ValueError("Game Already exists")
 
 
     # check if relevant metrics line #
@@ -502,6 +530,7 @@ if __name__ == "__main__":
     ap.add_argument("--submit-all", action=argparse.BooleanOptionalAction, default=False, help="Submit all file not on the server already")
     ap.add_argument("--submitter")
     ap.add_argument("--check-server-version", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--ignore-replays", action=argparse.BooleanOptionalAction, default=True)
     args = ap.parse_args()
 
     ARGS = args
@@ -599,7 +628,7 @@ if __name__ == "__main__":
             if f.is_file() and f.name.startswith("game_")
         ]
 
-        latest = find_latest_game_log(WATCH_DIR, 2)
+        latest = find_latest_game_log(WATCH_DIR, 2, args.ignore_replays)
         for f in files:
 
             filepath = os.path.join(WATCH_DIR, f)
@@ -611,15 +640,22 @@ if __name__ == "__main__":
         sys.exit(0)
 
     retry_connection = False
+    PRINT_INTERVAL = 60
+    print_limiter_counter = PRINT_INTERVAL + 1
+    SLEEP_TIME = 2
     while True:
 
         if args.use_latest and not retry_connection:
-            filename = find_latest_game_log(WATCH_DIR, args.use_latest_max_age_hours)
+            filename = find_latest_game_log(WATCH_DIR, args.use_latest_max_age_hours, args.ignore_replays)
             if not filename or old_filename == filename:
 
                 if args.wait_for_new_file:
-                    # print("No suitable gamelog file found. Sleeping...")
-                    time.sleep(2)
+                    if print_limiter_counter >= PRINT_INTERVAL:
+                        print(f"[{datetime.datetime.now().strftime(r"%y-%m-%d %H:%M:%S")}] No suitable gamelog file found. Waiting for new game to start...")
+                        print_limiter_counter = 0
+
+                    print_limiter_counter += SLEEP_TIME
+                    time.sleep(SLEEP_TIME)
                     continue
                 else:
                     sys.exit(0)
@@ -629,6 +665,9 @@ if __name__ == "__main__":
         retry_connection = False
 
         print("Targeting File:",  filename)
+        if "replay_" in filename:
+            print(" ^ This is a replay. Recording will start once army is switched (can only be done once).")
+                
         if not args.follow:
             print("Processing File (Single Run and Quit)")
             try:
@@ -639,7 +678,7 @@ if __name__ == "__main__":
         elif args.follow:
             print("Starting filetracker, Ctrl-C to abort..")
             try:
-                follow(os.path.join(WATCH_DIR, filename), ignore_conflict)
+                follow(os.path.join(WATCH_DIR, filename), ignore_conflict, ignore_replays=args.ignore_replays)
             except ValueError as e:
                 if str(e) != "Game Already exists":
                     print(e)
