@@ -666,7 +666,7 @@ if __name__ == "__main__":
         retry_connection = False
 
         print("Targeting File:",  filename)
-        if "replay_" in filename:
+        if "replay_" in str(filename):
             print(" ^ This is a replay. Recording will start once army is switched (can only be done once).")
                 
         if not args.follow:
