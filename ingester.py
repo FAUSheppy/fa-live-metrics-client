@@ -128,20 +128,6 @@ def check_lobby_line(line):
         name, uid_dirty = name_and_uid.split('"')
         uid = uid_dirty.split(", uid=")[1].replace("]", "").strip()
         name_clean = name.replace("]", "").strip()
-        print(json.dumps({
-            "player_connect_info": {
-                "playerId" : int(uid),
-                "playerName": name_clean,
-                "isSubmitter": False,
-                "isHost": True,
-                "firstSeen": timestamp
-            },
-            "connection_update" : {
-                "playerId": 0,
-                "connectionsList": [int(uid)],
-                "connectionState": "connecting"
-            }
-        }, indent=2))
 
         return {
             "player_connect_info": {
@@ -185,6 +171,21 @@ def check_lobby_line(line):
                 "connectionState": status
             }
         }
+    
+    # info: DisconnectFromPeer (uid=263948)
+    # debug: GpgNetSend	Disconnected	263948
+    # info: LOBBY: deleting unknown peer uid 263948.
+    LOBBY_DELETE_STRING = "info: LOBBY: deleting unknown peer uid "
+    if line.startswith(LOBBY_DELETE_STRING):
+        _, uid_delete = line.split(LOBBY_DELETE_STRING)
+        payload = {
+            "lobby_connection_delete" : {
+                "playerId": int(uid_delete.strip().replace(".", "")),
+                "connectionsList": [],
+                "connectionState": "disconnected"
+            }
+        }
+        return payload
 
     if line.startswith("info: ConnectToPeer"):
 
@@ -292,7 +293,7 @@ def find_latest_game_log(directory: str, max_age: int, ignore_replays: bool = Tr
     if not latest_file or file_age < datetime.datetime.now() - datetime.timedelta(hours=max_age):
         info_txt = f"({os.path.basename(latest_file)} ended at {file_age.strftime('%d.%m.%Y %H:%M')})"
         if not LATEST_GAME_WARNING_PRINTED:
-            print(f"Latest game was too long ago (--use-latest-max-age-hours is {info_txt})")
+            print(f"Latest game was too long ago (--use-latest-max-age-hours to change this setting {info_txt})")
             LATEST_GAME_WARNING_PRINTED = True
         return
 
@@ -370,7 +371,7 @@ def follow(filepath, ignore_conflict, ignore_replays):
                 bulk.append(data)
 
             # send data if more than 300 lines #
-            if len(bulk) > 1000 or (len(bulk) > 100 and eof_reached):
+            if len(bulk) > 1000 or (len(bulk) > 100 and eof_reached) or (len(bulk) >= 1 and "delete" in bulk[-1]):
                 send_data(bulk)
                 if line_first_seen:
                     print("Time between line first seen and inserted:", datetime.datetime.now() - line_first_seen)
