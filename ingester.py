@@ -171,7 +171,30 @@ def check_lobby_line(line):
                 "connectionState": status
             }
         }
-    
+    # debug: GpgNetSend	Chat	!notifyme players 8
+    NOTIFY_ME_LINE = "debug: GpgNetSend	Chat	!notifyme players "
+    if line.startswith(NOTIFY_ME_LINE):
+        result = line.split(NOTIFY_ME_LINE)
+        count = 10
+        if len(result) == 2:
+            try:
+                count = int(result[1])
+            except ValueError:
+                print("Invalid parameter for notify (must be an integer)")
+                return
+        else:
+            print("Missing player count for notification")
+            return
+
+        payload = {
+            "notification" : {
+                "type" : "player_count_gte",
+                "value": count
+            }
+        }
+        print(f"Notification Condition Requested: {payload}")
+        return payload
+
     # info: DisconnectFromPeer (uid=263948)
     # debug: GpgNetSend	Disconnected	263948
     # info: LOBBY: deleting unknown peer uid 263948.
