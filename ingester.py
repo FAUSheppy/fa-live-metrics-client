@@ -36,7 +36,7 @@ HEADERS = {
 }
 
 LATEST_GAME_WARNING_PRINTED = False
-
+IS_MATCHMAKING = True
 
 def get_faf_log_dir() -> Path:
 
@@ -85,6 +85,7 @@ def send_game_info(filepath, state, replay_update_army_id=0):
         "file": filepath,
         "state": state,
         "submitter": SUBMITTER,
+        "isMatchmaking": IS_MATCHMAKING,
         "replayUpdateArmyId": replay_update_army_id
     }
     return requests.post(GAME_INFO_API, headers=HEADERS, json=payload)
@@ -95,6 +96,7 @@ def send_data(data):
     return requests.post(INSERT_API, headers=HEADERS, json=payload)
 
 def check_lobby_line(line):
+    global IS_MATCHMAKING
 
     timestamp = int(datetime.datetime.now().timestamp())
 
@@ -158,12 +160,14 @@ def check_lobby_line(line):
         other_uid = match.group('uid')
         status = match.group('status')
 
+        print(IS_MATCHMAKING)
         return {
             "player_connect_info": {
                 "playerId" : int(other_uid),
                 "playerName": name,
                 "isSubmitter": False,
-                "firstSeen": timestamp
+                "firstSeen": timestamp,
+                "isMatchmaking": IS_MATCHMAKING
             },
             "connection_update" : {
                 "playerId": 0,
@@ -231,6 +235,10 @@ def check_lobby_line(line):
                 "connectionState": "connected"
             }
         }
+
+    # this line is lobby-only (so does not occur in matchmaking)
+    if "debug: GpgNetSend	GameOption" in line:
+        IS_MATCHMAKING = False
 
     if "has established connections" in line:
         # "info: LOBBY: "j141" [kubernetes.docker.internal:55764, uid=322144] has established connections to: 1050, 59896, 239510, 353468, 466357"
@@ -402,6 +410,8 @@ def follow(filepath, ignore_conflict, ignore_replays):
 
 
 def process_file(filepath: str):
+    global IS_MATCHMAKING
+    IS_MATCHMAKING = True # set to false in processing
 
     bulk_data = []
 
