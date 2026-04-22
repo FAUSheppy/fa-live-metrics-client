@@ -93,7 +93,9 @@ def send_game_info(filepath, state, replay_update_army_id=0):
 def send_data(data):
 
     payload = { "data": data, "submitter": SUBMITTER}
-    return requests.post(INSERT_API, headers=HEADERS, json=payload)
+    r = requests.post(INSERT_API, headers=HEADERS, json=payload)
+    r.raise_for_status()
+    return r
 
 def check_lobby_line(line):
     global IS_MATCHMAKING
@@ -381,10 +383,11 @@ def follow(filepath, ignore_conflict, ignore_replays):
                 "info: CNetTCPBuf::Read(): recv() failed: WSAEINTR" # pretty common crash message
             ]
             if any(x in line  for x in FILE_TERMINATORS):
-                print("Found end of file. Exiting follow & Waiting for set to finish processing..")
+                print("Found end of file. Exiting follow & Waiting for server to finish processing..", end=" ")
                 send_data(bulk)
+                print("Completed.")
                 send_game_info(filepath, state="DONE")
-                print("Submission completed. Marked game as finished.")
+                print("Marked game as finished.")
                 return
 
             # process lines & send to server #
@@ -402,7 +405,7 @@ def follow(filepath, ignore_conflict, ignore_replays):
                 bulk.append(data)
 
             # send data if more than 300 lines #
-            if len(bulk) > 1000 or (len(bulk) > 100 and eof_reached) or (len(bulk) >= 1 and "delete" in bulk[-1]):
+            if len(bulk) > 300 or (len(bulk) > 100 and eof_reached) or (len(bulk) >= 1 and "delete" in bulk[-1]):
                 send_data(bulk)
                 if line_first_seen:
                     print("Time between line first seen and inserted:", datetime.datetime.now() - line_first_seen)
@@ -416,7 +419,7 @@ def process_file(filepath: str):
     bulk_data = []
 
     print(f"Processing file: {filepath}")
-    executor = ThreadPoolExecutor(max_workers=8)  # tune if needed
+    executor = ThreadPoolExecutor(max_workers=1)  # tune if needed
     futures = []
     with open(filepath, "r") as f:
 
@@ -582,7 +585,14 @@ if __name__ == "__main__":
         HEADERS["Token"] = args.secret_token
 
     if args.check_server_version:
-        response = requests.get(TARGET_SERVER + "/api/debug/server-version")
+        try:
+            response = requests.get(TARGET_SERVER + "/api/debug/server-version")
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            print("Unable to query Server version. Most likely because the server is down.") 
+            input("<ENTER to exit>")
+            sys.exit(1)
+
         result = response.json()
         server_version = result["version"]
         if MIN_SERVER_VERSION > server_version or MAX_SERVER_VERSION < server_version:
