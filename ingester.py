@@ -160,7 +160,6 @@ def check_lobby_line(line):
         other_uid = match.group('uid')
         status = match.group('status')
 
-        print(IS_MATCHMAKING)
         return {
             "player_connect_info": {
                 "playerId" : int(other_uid),
@@ -382,9 +381,10 @@ def follow(filepath, ignore_conflict, ignore_replays):
                 "info: CNetTCPBuf::Read(): recv() failed: WSAEINTR" # pretty common crash message
             ]
             if any(x in line  for x in FILE_TERMINATORS):
-                print("Found end of file. Exiting follow & Sending done..")
+                print("Found end of file. Exiting follow & Waiting for set to finish processing..")
                 send_data(bulk)
                 send_game_info(filepath, state="DONE")
+                print("Submission completed. Marked game as finished.")
                 return
 
             # process lines & send to server #
@@ -468,7 +468,7 @@ def process_line(line, filepath):
     if line.startswith(IDENT_REPLAY_SUBMITTER_UPDATE):
         SUBMITTER, ARMY_ID = line.split(IDENT_REPLAY_SUBMITTER_UPDATE)[1].split(",")
         send_game_info(filepath, state="NEW", replay_update_army_id=int(ARMY_ID))
-        print(f"Replay Analysis: Updated Submitter to {SUBMITTER}")
+        print(f"Updated Submitter to {SUBMITTER}")
         return None, None
 
     # check for self identifier first #
