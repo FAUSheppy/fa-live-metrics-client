@@ -17,9 +17,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
 # ------------ CONFIGURATION ------------ #
 
-MIN_SERVER_VERSION = 7
-MAX_SERVER_VERSION = 7
-MIN_MOD_VERSION = 7
+MIN_SERVER_VERSION = 8
+MAX_SERVER_VERSION = 8
+MIN_MOD_VERSION = 8
 
 SUBMITTER = None
 WATCH_DIR = None
@@ -396,10 +396,15 @@ def follow(filepath, ignore_conflict, ignore_replays):
             if data:
 
                 # mod version
+                if "modVersion" in data:
+                    print("\nDetected Mod Version:", data['modVersion'])
+
                 if "mapName" in data and ("modVersion" not in data or data['modVersion'] < MIN_MOD_VERSION):
-                    print(f"\n\n============================ OUTDATED MOD =======================================")
-                    print(f"Live Metrics Mod Version is too low! (Installed: {data.get('modVersion') or '4'}, Required: {MIN_MOD_VERSION})")
-                    input(f"============================ ENTER TO EXIT ======================================\n\n")
+                    print(f"\n============================ OUTDATED MOD =======================================")
+                    print(f"      Live Metrics Mod Version is too low! (Installed: {data.get('modVersion') or '4'}, Required: {MIN_MOD_VERSION})")
+                    print(f"                  Upgrade via the FAF Mod-Vault (or GitHub)")
+                    print(f"===================================================================================\n")
+                    input(f"                              <ENTER> to exit\n")
                     sys.exit(1)
 
                 bulk.append(data)
@@ -597,9 +602,9 @@ if __name__ == "__main__":
         server_version = result["version"]
         if MIN_SERVER_VERSION > server_version or MAX_SERVER_VERSION < server_version:
             print(f"\n==========================================================================================")
-            print(f"You client requires server version between {MIN_SERVER_VERSION} and {MAX_SERVER_VERSION}.")
+            print(f"          You client requires server version between {MIN_SERVER_VERSION} and {MAX_SERVER_VERSION}.")
             print(f"                But this Server identifies as version {server_version}.")
-            print(f"                    Upgrade to the newest client to continue.")
+            print(f"                Upgrade to the newest client to continue.")
             print(f"==========================================================================================\n")
             input(f"                              <ENTER> to exit\n")
             sys.exit(1)
