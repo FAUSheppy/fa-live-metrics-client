@@ -772,6 +772,7 @@ if __name__ == "__main__":
 
     ap = argparse.ArgumentParser("FAF Metrics Ingester")
     ap.add_argument("--console", action=argparse.BooleanOptionalAction, default=False)
+    ap.add_argument("--auto-restart-for-ui-mode", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--file")
     ap.add_argument("--watch-dir")
     ap.add_argument("--target-server", default="https://fa-metrics.rancher.katzencluster.atlantishq.de")
@@ -810,4 +811,12 @@ if __name__ == "__main__":
     if args.console:
         main_loop(args)
     else:
-        gui(args)
+        if args.auto_restart_for_ui_mode:
+            import subprocess
+            subprocess.Popen(
+                [sys.executable, *sys.argv, "--no-auto-restart-for-ui-mode"],
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            sys.exit(0)
+        else:
+            gui(args)
