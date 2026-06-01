@@ -15,6 +15,10 @@ import platform
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
+import tkinter as tk
+import threading
+from tkinter.scrolledtext import ScrolledText
+
 # ------------ CONFIGURATION ------------ #
 
 MIN_SERVER_VERSION = 9
@@ -38,6 +42,40 @@ HEADERS = {
 LATEST_GAME_WARNING_PRINTED = False
 IS_MATCHMAKING = True
 
+UI_BASED = False
+UI_LOG = None
+
+def _append_ui_log(message):
+
+    global UI_LOG
+
+    if UI_LOG is None:
+        return
+
+    def _update():
+
+        if "\r" in message:
+            text = message.replace("\r", "\n")
+
+            # Remove current last line
+            UI_LOG.delete("end-2l linestart", "end-1c") # deletes everything/doesnt work
+
+            # Write replacement
+            UI_LOG.insert("end-1c", text)
+        else:
+            UI_LOG.insert("end-1c", message +"\n"+"\n")
+
+        UI_LOG.see("end")
+
+    UI_LOG.after(0, _update)
+
+def p_or_ui(msg, output_stream=sys.stdout, end="\n"):
+
+    if UI_BASED:
+        _append_ui_log(msg)
+
+    print(msg, end=end, file=output_stream)
+
 def get_faf_log_dir() -> Path:
 
     system = platform.system()
@@ -52,7 +90,7 @@ def get_faf_log_dir() -> Path:
         return home / ".faforever" / "logs"
 
     else:
-        print(f"Unsupported operating system: {system}", file=sys.stderr)
+        p_or_ui(f"Unsupported operating system: {system}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -63,21 +101,21 @@ def find_and_check_log_dir():
     WATCH_DIR = get_faf_log_dir()
 
     if not WATCH_DIR.exists():
-        print(f"WARNING: Log directory does not exist: {WATCH_DIR}", file=sys.stderr)
+        p_or_ui(f"WARNING: Log directory does not exist: {WATCH_DIR}", file=sys.stderr)
         sys.exit(1)
 
     if not WATCH_DIR.is_dir():
-        print(f"WARNING: Path is not a directory: {WATCH_DIR}", file=sys.stderr)
+        p_or_ui(f"WARNING: Path is not a directory: {WATCH_DIR}", file=sys.stderr)
         sys.exit(1)
 
     log_files = list(WATCH_DIR.glob("game_*.log"))
 
     if not log_files:
-        print(f"WARNING: No game_*.log files found in {WATCH_DIR}", file=sys.stderr)
+        p_or_ui(f"WARNING: No game_*.log files found in {WATCH_DIR}", file=sys.stderr)
         sys.exit(1)
 
     # At this point everything is valid
-    print(f"Found {len(log_files)} log files in {WATCH_DIR}")
+    p_or_ui(f"Found {len(log_files)} log files in {WATCH_DIR}")
 
 
 def send_game_info(filepath, state, replay_update_army_id=0):
@@ -185,10 +223,10 @@ def check_lobby_line(line):
             try:
                 count = int(result[1])
             except ValueError:
-                print("Invalid parameter for notify (must be an integer)")
+                p_or_ui("Invalid parameter for notify (must be an integer)")
                 return
         else:
-            print("Missing player count for notification")
+            p_or_ui("Missing player count for notification")
             return
 
         payload = {
@@ -197,7 +235,7 @@ def check_lobby_line(line):
                 "value": count
             }
         }
-        print(f"Notification Condition Requested: {payload}")
+        p_or_ui(f"Notification Condition Requested: {payload}")
         return payload
 
     # info: DisconnectFromPeer (uid=263948)
@@ -325,7 +363,7 @@ def find_latest_game_log(directory: str, max_age: int, ignore_replays: bool = Tr
     if not latest_file or file_age < datetime.datetime.now() - datetime.timedelta(hours=max_age):
         info_txt = f"({os.path.basename(latest_file)} ended at {file_age.strftime('%d.%m.%Y %H:%M')})"
         if not LATEST_GAME_WARNING_PRINTED:
-            print(f"Latest game was too long ago (--use-latest-max-age-hours to change this setting {info_txt})")
+            p_or_ui(f"Latest game was too long ago (--use-latest-max-age-hours to change this setting {info_txt})")
             LATEST_GAME_WARNING_PRINTED = True
         return
 
@@ -346,7 +384,7 @@ def follow(filepath, ignore_conflict, ignore_replays):
                 line = f.readline()
             except UnicodeDecodeError as e:
                 # this happens if non latin1-people do markers sometimes #
-                print("Error Decoding Line. Possible non-unicode?", e)
+                p_or_ui(f"Error Decoding Line. Possible non-unicode? -> {e}")
 
             # reached EOF, send everything that there #
             if not line:
@@ -358,14 +396,14 @@ def follow(filepath, ignore_conflict, ignore_replays):
                     send_data(bulk)
                     bulk = []
 
-                #print(f"[{datetime.datetime.now().strftime("%H:%M:%S")}] Waiting for new line... [{os.path.basename(filepath)}]")
+                #p_or_ui(f"[{datetime.datetime.now().strftime("%H:%M:%S")}] Waiting for new line... [{os.path.basename(filepath)}]")
                 time.sleep(0.1)
 
                 if (datetime.datetime.now() - datetime.timedelta(minutes=MAX_TIME_NO_DATA_MINUTES) > last_line_read or
                         str(find_latest_game_log(WATCH_DIR, 1, ignore_replays)) != filepath):
 
-                    print(f"Aborting read on {os.path.basename(filepath)}",
-                            f"New game log or no new lines for {MAX_TIME_NO_DATA_MINUTES}m",
+                    p_or_ui(f"Aborting read on {os.path.basename(filepath)} " +
+                            f"New game log or no new lines for {MAX_TIME_NO_DATA_MINUTES}m " +
                             "Game might have crashed.")
                     send_game_info(filepath, state="DONE")
                     return
@@ -373,7 +411,7 @@ def follow(filepath, ignore_conflict, ignore_replays):
                 continue
 
             # output line #
-            #print("Line found:", line.strip("\n")[:90])
+            #p_or_ui("Line found:", line.strip("\n")[:90])
             last_line_read = datetime.datetime.now()
 
             # check if is ending line #
@@ -383,27 +421,27 @@ def follow(filepath, ignore_conflict, ignore_replays):
                 "info: CNetTCPBuf::Read(): recv() failed: WSAEINTR" # pretty common crash message
             ]
             if any(x in line  for x in FILE_TERMINATORS):
-                print("Found end of file. Exiting follow & Waiting for server to finish processing..", end=" ")
+                p_or_ui("Found end of file. Exiting follow & Waiting for server to finish processing..")
                 send_data(bulk)
-                print("Completed.")
+                p_or_ui("Completed.")
                 send_game_info(filepath, state="DONE")
-                print("Marked game as finished.")
+                p_or_ui("Marked game as finished.")
                 return
 
             # process lines & send to server #
-            data, line_first_seen = process_line(line, filepath)
+            data, line_first_seen = process_line(line, filepath, ignore_conflict)
 
             if data:
 
                 # mod version
                 if "modVersion" in data:
-                    print("\nDetected Mod Version:", data['modVersion'])
+                    p_or_ui(f"\nDetected Mod Version: {data['modVersion']}")
 
                 if "mapName" in data and ("modVersion" not in data or data['modVersion'] < MIN_MOD_VERSION):
-                    print(f"\n============================ OUTDATED MOD =======================================")
-                    print(f"      Live Metrics Mod Version is too low! (Installed: {data.get('modVersion') or '4'}, Required: {MIN_MOD_VERSION})")
-                    print(f"                  Upgrade via the FAF Mod-Vault (or GitHub)")
-                    print(f"===================================================================================\n")
+                    p_or_ui(f"\n============================ OUTDATED MOD =======================================")
+                    p_or_ui(f"      Live Metrics Mod Version is too low! (Installed: {data.get('modVersion') or '4'}, Required: {MIN_MOD_VERSION})")
+                    p_or_ui(f"                  Upgrade via the FAF Mod-Vault (or GitHub)")
+                    p_or_ui(f"===================================================================================\n")
                     input(f"                              <ENTER> to exit\n")
                     sys.exit(1)
 
@@ -413,23 +451,23 @@ def follow(filepath, ignore_conflict, ignore_replays):
             if len(bulk) > 300 or (len(bulk) > 100 and eof_reached) or (len(bulk) >= 1 and "delete" in bulk[-1]):
                 send_data(bulk)
                 if line_first_seen:
-                    print("Time between line first seen and inserted:", datetime.datetime.now() - line_first_seen)
+                    p_or_ui("Time between line first seen and inserted:" + str(datetime.datetime.now() - line_first_seen))
                 bulk = []
 
 
-def process_file(filepath: str):
+def process_file(filepath: str, ignore_conflict):
     global IS_MATCHMAKING
     IS_MATCHMAKING = True # set to false in processing
 
     bulk_data = []
 
-    print(f"Processing file: {filepath}")
+    p_or_ui(f"Processing file: {filepath}")
     executor = ThreadPoolExecutor(max_workers=1)  # tune if needed
     futures = []
     with open(filepath, "r") as f:
 
         for line in f:
-            data, line_first_seen = process_line(line, filepath)
+            data, line_first_seen = process_line(line, filepath, ignore_conflict)
             if data:
                 bulk_data.append(data)
 
@@ -443,7 +481,7 @@ def process_file(filepath: str):
                 )
                 bulk_data = []
 
-    print("\nSubmitting final game information.. Waiting for server to ack it.")
+    p_or_ui("\nSubmitting final game information.. Waiting for server to ack it.")
 
     send_data(bulk_data)
     send_game_info(filepath, state="DONE")
@@ -455,12 +493,12 @@ def process_file(filepath: str):
         try:
             future.result()
         except Exception as e:
-            print(f"Insert failed: {e}")
+            p_or_ui(f"Insert failed: {e}")
 
     executor.shutdown()
 
 
-def process_line(line, filepath):
+def process_line(line, filepath, ignore_conflict):
 
     global SUBMITTER
 
@@ -476,7 +514,7 @@ def process_line(line, filepath):
     if line.startswith(IDENT_REPLAY_SUBMITTER_UPDATE):
         SUBMITTER, ARMY_ID = line.split(IDENT_REPLAY_SUBMITTER_UPDATE)[1].split(",")
         send_game_info(filepath, state="NEW", replay_update_army_id=int(ARMY_ID))
-        print(f"Updated Submitter to {SUBMITTER}")
+        p_or_ui(f"Updated Submitter to {SUBMITTER}")
         return None, None
 
     # check for self identifier first #
@@ -493,7 +531,7 @@ def process_line(line, filepath):
         # record new game #
         response = send_game_info(filepath, state="NEW")
         if response.status_code == 409 and not ignore_conflict:
-            print(f"Game {os.path.basename(filepath)} already in db. Skipping..")
+            p_or_ui(f"Game {os.path.basename(filepath)} already in db. Skipping..")
             raise ValueError("Game Already exists")
 
     elif line.startswith(IDENT_STR_REPLAY) and "replay" in filepath:
@@ -501,7 +539,7 @@ def process_line(line, filepath):
         SUBMITTER = "replay_recording"
         response = send_game_info(filepath, state="NEW")
         if response.status_code == 409 and not ignore_conflict:
-            print(f"Game {os.path.basename(filepath)} already in db. Skipping..")
+            p_or_ui(f"Game {os.path.basename(filepath)} already in db. Skipping..")
             raise ValueError("Game Already exists")
 
 
@@ -541,11 +579,11 @@ def process_line(line, filepath):
         current_max_game_time =  data.get("time", -1)
         game_time_minutes, game_time_seconds = int(current_max_game_time / (60)), int(current_max_game_time  % 60)
         line_first_seen = datetime.datetime.now()
-        print("Processed until Game Time: ", f"{game_time_minutes}:{game_time_seconds}\r", end="")
+        p_or_ui(f"Processed until Game Time: {game_time_minutes}:{game_time_seconds}\r", end="")
         return data, line_first_seen
 
     except json.JSONDecodeError:
-        print(f"[WARN] invalid JSON: {filepath} {jsonline}")
+        p_or_ui(f"[WARN] invalid JSON: {filepath} {jsonline}")
         return None, None
 
 
@@ -554,74 +592,37 @@ def file_is_recent(filepath: str) -> bool:
     mtime = os.path.getmtime(filepath)
     return (time.time() - mtime) < MAX_FILE_AGE
 
-
-if __name__ == "__main__":
-
-    ap = argparse.ArgumentParser("FAF Metrics Ingester")
-    ap.add_argument("--file")
-    ap.add_argument("--watch-dir")
-    ap.add_argument("--target-server", default="https://fa-metrics.rancher.katzencluster.atlantishq.de")
-    ap.add_argument("--secret-token")
-    ap.add_argument("--follow", action=argparse.BooleanOptionalAction, default=True)
-    ap.add_argument("--use-latest", action=argparse.BooleanOptionalAction, default=True)
-    ap.add_argument("--wait-for-new-file", action=argparse.BooleanOptionalAction, default=True)
-    ap.add_argument("--ignore-conflict", action=argparse.BooleanOptionalAction, default=False, help="Write even if the game is aleady tracked in the DB.")
-    ap.add_argument("--use-latest-max-age-hours", type=int, default=1)
-    ap.add_argument("--simulate-live", action=argparse.BooleanOptionalAction, help="Simulate sending a existing file in real time")
-    ap.add_argument("--load-sample-data", action=argparse.BooleanOptionalAction, default=False, help="Load Sample Data and ignore all other options")
-    ap.add_argument("--submit-all", action=argparse.BooleanOptionalAction, default=False, help="Submit all file not on the server already")
-    ap.add_argument("--submitter")
-    ap.add_argument("--check-server-version", action=argparse.BooleanOptionalAction, default=True)
-    ap.add_argument("--ignore-replays", action=argparse.BooleanOptionalAction, default=True)
-    args = ap.parse_args()
-
-    ARGS = args
-
-    # base args #
-    if args.watch_dir:
-        print(f"Watch-Dir set manually to {args.watchdir} we assume you know what you are doing..")
-        WATCH_DIR = args.watch_dir
-    else:
-        find_and_check_log_dir()
-
-    if args.target_server:
-        TARGET_SERVER = args.target_server
-    if args.secret_token:
-        HEADERS["Token"] = args.secret_token
+def main_loop(args):
 
     if args.check_server_version:
         try:
             response = requests.get(TARGET_SERVER + "/api/debug/server-version")
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            print("Unable to query Server version. Most likely because the server is down.") 
+            p_or_ui("Unable to query Server version. Most likely because the server is down.") 
             input("<ENTER to exit>")
             sys.exit(1)
 
         result = response.json()
         server_version = result["version"]
         if MIN_SERVER_VERSION > server_version or MAX_SERVER_VERSION < server_version:
-            print(f"\n==========================================================================================")
-            print(f"          You client requires server version between {MIN_SERVER_VERSION} and {MAX_SERVER_VERSION}.")
-            print(f"                But this Server identifies as version {server_version}.")
-            print(f"                Upgrade to the newest client to continue.")
-            print(f"==========================================================================================\n")
+            p_or_ui(f"\n==========================================================================================")
+            p_or_ui(f"          You client requires server version between {MIN_SERVER_VERSION} and {MAX_SERVER_VERSION}.")
+            p_or_ui(f"                But this Server identifies as version {server_version}.")
+            p_or_ui(f"                Upgrade to the newest client to continue.")
+            p_or_ui(f"==========================================================================================\n")
             input(f"                              <ENTER> to exit\n")
             sys.exit(1)
 
     if args.submitter:
-        print("Warning --submitter is deprecated and will be ignored. Submitter is determined based on game-log.")
-
-    # set API locations # 
-    GAME_INFO_API = TARGET_SERVER + "/api/gameinfo"
-    INSERT_API = TARGET_SERVER + "/api/insert"
+        p_or_ui("Warning --submitter is deprecated and will be ignored. Submitter is determined based on game-log.")
 
     # sample data loading if requested #
     if args.load_sample_data:
 
         SAMPLE_NAME = "game_26119627.log"
         SAMPLE_DATA_HREF = f"https://media.atlantishq.de/faf-stuff/{SAMPLE_NAME}"
-        print("--load-sample-data requested: Only loading example data, ignoring all other options!")
+        p_or_ui("--load-sample-data requested: Only loading example data, ignoring all other options!")
 
         # download example game log if not present #
         filepath = SAMPLE_NAME
@@ -632,11 +633,11 @@ if __name__ == "__main__":
 
         # process file #
         start_time = datetime.datetime.now()
-        process_file(filepath)
+        process_file(filepath, args.ignore_conflict)
         end_time = datetime.datetime.now()
 
-        print(f"-> Took {int((end_time - start_time).total_seconds())}s")
-        print('''Sample Data loaded successfully:
+        p_or_ui(f"-> Took {int((end_time - start_time).total_seconds())}s")
+        p_or_ui('''Sample Data loaded successfully:
 
             React Frontend: http://localhost:8081?gameid=26119627
             Flask Server: http://localhost:8080/games
@@ -648,22 +649,22 @@ if __name__ == "__main__":
 
     # check arguments #
     if args.file and args.use_latest:
-        print("Can either specify --file or --use-latest", file=sys.stderr)
+        p_or_ui("Can either specify --file or --use-latest", file=sys.stderr)
         sys.exit(1)
     elif args.wait_for_new_file and not (args.follow and args.use_latest):
-        print("Auto targeting new file requires --follow and --use-latest as extra flags", file=sys.stderr)
+        p_or_ui("Auto targeting new file requires --follow and --use-latest as extra flags", file=sys.stderr)
         sys.exit(1)
     elif not (args.use_latest or args.file or args.submit_all):
-        print("Must specify either --file or --use-latest", file=sys.stderr)
+        p_or_ui("Must specify either --file or --use-latest", file=sys.stderr)
         sys.exit(1)
     elif args.simulate_live and not args.file:
-        print("--simulate-live is only possible with --file", file=sys.stderr)
+        p_or_ui("--simulate-live is only possible with --file", file=sys.stderr)
         sys.exit(1)
     elif args.simulate_live:
-        print("--simulate-live is not implemented yet, sorry.", file=sys.stderr)
+        p_or_ui("--simulate-live is not implemented yet, sorry.", file=sys.stderr)
         sys.exit(1)
     elif args.submit_all and (args.use_latest or args.file):
-        print("--submit-all not allowed with --use-latest or --file", file=sys.stderr)
+        p_or_ui("--submit-all not allowed with --use-latest or --file", file=sys.stderr)
         sys.exit(1)
 
     filename = args.file
@@ -685,7 +686,7 @@ if __name__ == "__main__":
             if filepath == latest:
                 continue
 
-        print(f"Submited all files in {WATCH_DIR}")
+        p_or_ui(f"Submited all files in {WATCH_DIR}")
         sys.exit(0)
 
     retry_connection = False
@@ -701,7 +702,7 @@ if __name__ == "__main__":
                 if args.wait_for_new_file:
                     if print_limiter_counter >= PRINT_INTERVAL:
                         time_format = r"%y-%m-%d %H:%M:%S"
-                        print(f"[{datetime.datetime.now().strftime(time_format)}] No suitable gamelog file found. Waiting for new game to start...")
+                        p_or_ui(f"[{datetime.datetime.now().strftime(time_format)}] No suitable gamelog file found. Waiting for new game to start...")
                         print_limiter_counter = 0
 
                     print_limiter_counter += SLEEP_TIME
@@ -714,26 +715,26 @@ if __name__ == "__main__":
         ignore_conflict = args.ignore_conflict or retry_connection
         retry_connection = False
 
-        print("Targeting File:",  filename)
+        p_or_ui("Targeting File:" +  str(filename))
         if "replay_" in str(filename):
-            print(" ^ This is a replay. Recording will start once army is switched (can only be done once).")
+            p_or_ui(" ^ This is a replay. Recording will start once army is switched (can only be done once).")
                 
         if not args.follow:
-            print("Processing File (Single Run and Quit)")
+            p_or_ui("Processing File (Single Run and Quit)")
             try:
-                process_file(os.path.join(WATCH_DIR, filename))
+                process_file(os.path.join(WATCH_DIR, filename), args.ignore_conflict)
             except ValueError as e:
-                print(e)
+                p_or_ui(e)
 
         elif args.follow:
-            print("Starting filetracker, Ctrl-C to abort..")
+            p_or_ui("Starting filetracker, Ctrl-C to abort..")
             try:
                 follow(os.path.join(WATCH_DIR, filename), ignore_conflict, ignore_replays=args.ignore_replays)
             except ValueError as e:
                 if str(e) != "Game Already exists":
-                    print(e)
+                    p_or_ui(e)
             except requests.exceptions.ConnectionError as e:
-                print("Connection to server failed: ", e, "retrying in 5s...")
+                p_or_ui(f"Connection to server failed:  {e} - retrying in 5s...")
                 time.sleep(5)
                 retry_connection = True
         else:
@@ -743,3 +744,70 @@ if __name__ == "__main__":
         old_filename = filename
         if not args.wait_for_new_file:
             break
+
+def gui(args):
+    global UI_BASED
+    global UI_LOG
+
+    UI_BASED = True
+
+    root = tk.Tk()
+    root.title("FAF Metrics Ingester")
+    root.geometry("1000x700")
+
+    UI_LOG = ScrolledText(root, wrap=tk.WORD)
+    UI_LOG.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    p_or_ui("FAF Metrics Ingester started")
+
+    threading.Thread(
+        target=main_loop,
+        args=(args,),
+        daemon=True
+    ).start()
+
+    root.mainloop()
+
+if __name__ == "__main__":
+
+    ap = argparse.ArgumentParser("FAF Metrics Ingester")
+    ap.add_argument("--console", action=argparse.BooleanOptionalAction, default=False)
+    ap.add_argument("--file")
+    ap.add_argument("--watch-dir")
+    ap.add_argument("--target-server", default="https://fa-metrics.rancher.katzencluster.atlantishq.de")
+    ap.add_argument("--secret-token")
+    ap.add_argument("--follow", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--use-latest", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--wait-for-new-file", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--ignore-conflict", action=argparse.BooleanOptionalAction, default=False, help="Write even if the game is aleady tracked in the DB.")
+    ap.add_argument("--use-latest-max-age-hours", type=int, default=1)
+    ap.add_argument("--simulate-live", action=argparse.BooleanOptionalAction, help="Simulate sending a existing file in real time")
+    ap.add_argument("--load-sample-data", action=argparse.BooleanOptionalAction, default=False, help="Load Sample Data and ignore all other options")
+    ap.add_argument("--submit-all", action=argparse.BooleanOptionalAction, default=False, help="Submit all file not on the server already")
+    ap.add_argument("--submitter")
+    ap.add_argument("--check-server-version", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--ignore-replays", action=argparse.BooleanOptionalAction, default=True)
+    args = ap.parse_args()
+
+    ARGS = args
+
+    # base args #
+    if args.watch_dir:
+        p_or_ui(f"Watch-Dir set manually to {args.watchdir} we assume you know what you are doing..")
+        WATCH_DIR = args.watch_dir
+    else:
+        find_and_check_log_dir()
+
+    if args.target_server:
+        TARGET_SERVER = args.target_server
+    if args.secret_token:
+        HEADERS["Token"] = args.secret_token
+
+    # set API locations # 
+    GAME_INFO_API = TARGET_SERVER + "/api/gameinfo"
+    INSERT_API = TARGET_SERVER + "/api/insert"
+
+    if args.console:
+        main_loop(args)
+    else:
+        gui(args)
