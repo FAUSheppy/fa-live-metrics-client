@@ -774,7 +774,7 @@ if __name__ == "__main__":
     ap.add_argument("--console", action=argparse.BooleanOptionalAction, default=False)
     ap.add_argument("--file")
     ap.add_argument("--watch-dir")
-    ap.add_argument("--target-server", default="https://fa-metrics.rancher.katzencluster.atlantishq.de")
+    ap.add_argument("--target-server", default="https://fa-companion.services.atlantishq.de")
     ap.add_argument("--secret-token")
     ap.add_argument("--follow", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--use-latest", action=argparse.BooleanOptionalAction, default=True)
